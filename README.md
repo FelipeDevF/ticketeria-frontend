@@ -21,7 +21,7 @@ TicketHub é uma plataforma web para busca, visualização e compra de ingressos
 - **Página de Detalhes do Evento:** Informações completas, setores, tipos de ingresso, vídeos, local de venda e compra direta.
 - **Carrinho de Compras:** Adição, remoção e ajuste de quantidade de ingressos.
 - **Fluxo de Compra:** Checkout com formulário, resumo do pedido e confirmação.
-- **Cadastro e Login:** Formulários validados com autenticação simulada.
+- **Cadastro e Login:** Formulários validados com autenticação simulada e integração com API de autenticação (registro de usuário).
 - **Meus Pedidos:** Histórico de compras do usuário, com detalhes e status.
 - **Confirmação de Pedido:** Tela de sucesso com detalhes do pedido e instruções.
 - **Tema Claro/Escuro:** Suporte a dark mode via `next-themes`.
@@ -29,12 +29,13 @@ TicketHub é uma plataforma web para busca, visualização e compra de ingressos
 - **Validações Avançadas:** Uso de Zod para validação de formulários (login, cadastro, etc).
 - **Responsividade:** Layout adaptado para dispositivos móveis e desktop.
 - **Acessibilidade:** Uso de componentes acessíveis e boas práticas de UX.
+- **Gerenciamento de Estado Assíncrono:** Uso de React Query para mutações e cache de dados (ex: registro de usuário).
 
 ---
 
 ## Demonstração
 
-> **Nota:** O projeto não inclui backend real, sendo focado em prototipação e experiência de usuário.
+> **Nota:** O projeto não inclui backend real, sendo focado em prototipação e experiência de usuário. O fluxo de autenticação simula integração com API.
 
 ---
 
@@ -63,8 +64,17 @@ ticketeria-frontend/
 ├── lib/                    # Funções utilitárias, tipos e dados mockados
 │   ├── events.ts           # Lista mockada de eventos
 │   ├── types.ts            # Tipos TypeScript (Event, CartItem, OrderDetails, etc)
-│   ├── utils.ts            # Funções utilitárias
-│   └── validations.ts      # Schemas de validação (Zod)
+│   ├── utils.ts            # Funções utilitárias (ex: getApiUrl)
+│   ├── validations.ts      # Schemas de validação (Zod) para login
+│   └── react-query-client.ts # Instância do React Query Client
+│
+├── modules/                # Módulos de domínio
+│   └── auth/               # Lógica de autenticação (registro, validações, tipos, hooks)
+│       ├── authService.ts  # Serviço para registro de usuário via API
+│       ├── hooks/          # Hooks de autenticação (ex: useRegister)
+│       ├── types.ts        # Tipos para autenticação
+│       └── validation.ts   # Schema de validação para cadastro
+│   └── events/             # (Reservado para lógica de eventos)
 │
 ├── public/                 # Imagens e arquivos estáticos
 │
@@ -89,6 +99,8 @@ ticketeria-frontend/
 - **Radix UI**: Componentes acessíveis e semânticos.
 - **Zod**: Validação de schemas para formulários.
 - **React Hook Form**: Gerenciamento de formulários.
+- **React Query (@tanstack/react-query):** Gerenciamento de cache e mutações assíncronas (ex: registro de usuário).
+- **Axios:** Requisições HTTP para integração com APIs.
 - **Lucide Icons**: Ícones SVG modernos.
 - **next-themes**: Suporte a tema claro/escuro.
 - **Outros**: date-fns, recharts, embla-carousel, etc.
@@ -140,13 +152,18 @@ ticketeria-frontend/
 ## Detalhes Técnicos
 
 - **Estrutura de Dados:** Os eventos, setores, tipos de ingresso e pedidos são mockados em arquivos TypeScript (`lib/events.ts`, `lib/types.ts`).
-- **Validações:** Todos os formulários (login, cadastro, compra) usam validação robusta com Zod.
+- **Validações:** Todos os formulários (login, cadastro, compra) usam validação robusta com Zod. O schema de cadastro está em `modules/auth/validation.ts` e o de login em `lib/validations.ts`.
 - **Persistência:** Carrinho e pedidos são salvos no `localStorage` para simulação de fluxo real.
 - **Componentização:** Mais de 40 componentes de UI prontos para uso, baseados em Radix UI e estilizados com Tailwind.
 - **Tema:** Suporte a dark/light mode via `next-themes` e CSS customizado.
 - **Acessibilidade:** Componentes com foco em acessibilidade e navegação por teclado.
 - **Responsividade:** Layouts adaptados para mobile, tablet e desktop.
 - **Customização:** Fácil extensão de temas, cores e componentes via Tailwind e Radix.
+- **Autenticação:**
+  - Serviço de registro de usuário (`modules/auth/authService.ts`) usando Axios e integração com API (endpoint configurável via `getApiUrl` em `lib/utils.ts`).
+  - Hook `useRegister` para registro de usuário com React Query (`modules/auth/hooks/useRegister.ts`).
+  - Tipos centralizados em `modules/auth/types.ts`.
+  - Instância do React Query Client em `lib/react-query-client.ts`.
 
 ---
 
