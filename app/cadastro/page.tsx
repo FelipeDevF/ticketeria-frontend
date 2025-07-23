@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, Eye, EyeOff, CheckCircle } from "lucide-react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,16 +23,16 @@ import {
 } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { cadastroSchema, type CadastroFormData, useRegister, RegisterPayload } from '../../modules/auth'
+import { cadastroSchema, type CadastroFormData, useRegisterWithAutoLogin, RegisterPayload } from '../../modules/auth'
 import { loginSchema, type LoginFormData } from '@/lib/validations'
 import { formatCPF, formatPhone, formatCEP } from '@/lib/format'
+import { signIn } from "next-auth/react"
 
 export default function CadastroPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
+  const router = useRouter()
 
-  // Lista de estados brasileiros
   const brazilianStates = [
     { value: "AC", label: "Acre" },
     { value: "AL", label: "Alagoas" },
@@ -61,7 +63,6 @@ export default function CadastroPage() {
     { value: "TO", label: "Tocantins" },
   ]
 
-  // Form para cadastro
   const cadastroForm = useForm<CadastroFormData>({
     resolver: zodResolver(cadastroSchema),
     defaultValues: {
@@ -81,7 +82,6 @@ export default function CadastroPage() {
     },
   })
 
-  // Form para login
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -90,19 +90,9 @@ export default function CadastroPage() {
     },
   })
 
-  const registerMutation = useRegister({
-    onSuccess: (data) => {
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('refreshToken', data.refreshToken)
-      setIsSuccess(true)
-    },
-    onError: (error: any) => {
-      alert(error?.response?.data?.message || 'Erro ao cadastrar usuário')
-    },
-  })
+  const registerMutation = useRegisterWithAutoLogin()
 
   const onCadastroSubmit = async (data: any) => {
-    // Mapear os campos do formulário para o payload esperado
     const payload: RegisterPayload = {
       name: data.nome,
       email: data.email,
@@ -118,47 +108,34 @@ export default function CadastroPage() {
       acceptTerms: true,
       acceptNewsletter: false,
     }
-    registerMutation.mutate(payload)
+    
+    const loginData = {
+      email: data.email,
+      password: data.password
+    }
+    
+    registerMutation.mutate({ payload, loginData })
   }
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
-      console.log("Dados do login:", data)
-      alert(`Login realizado com sucesso para ${data.email}!`)
-      window.location.href = "/"
-    } catch (error) {
-      console.error("Erro no login:", error)
-    }
-  }
+      const result = await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      })
 
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">Cadastro realizado!</h2>
-                <p className="text-muted-foreground mt-2">
-                  Sua conta foi criada com sucesso. Você já pode fazer login e começar a comprar ingressos.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link href="/">Ir para Home</Link>
-                </Button>
-                <Button variant="outline" asChild className="w-full bg-transparent">
-                  <Link href="/">Fazer Login</Link>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+      if (result?.ok) {
+        toast.success(`Login realizado com sucesso para ${data.email}!`)
+        setIsLoginOpen(false)
+        router.push("/")
+        router.refresh() // Força a atualização da sessão
+      } else {
+        toast.error("Credenciais inválidas. Verifique seu e-mail e senha.")
+      }
+    } catch (error) {
+      toast.error("Ocorreu um erro ao fazer login. Verifique suas credenciais e tente novamente.")
+    }
   }
 
   return (

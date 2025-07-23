@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { Search, Calendar, MapPin, Users, ShoppingCart, Star, Filter, Plus, Minus } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link" // Importar Link
+import Link from "next/link"
+import { signIn, signOut } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,7 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogIn, LogOut, Settings, UserCircle, ShoppingBag } from "lucide-react" // Adicionar ShoppingBag
+import { LogIn, LogOut, Settings, UserCircle, ShoppingBag } from "lucide-react"
 
 // Adicionar as importações necessárias para React Hook Form e Zod
 import { useForm } from "react-hook-form"
@@ -39,6 +40,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { loginSchema, type LoginFormData } from "@/lib/validations"
 import { events } from "@/lib/events" // Importar eventos do arquivo centralizado
 import type { Event, CartItem } from "@/lib/types" // Importar tipos
+import { useSession } from "@/modules/auth"
 
 export default function TicketSalesWebsite() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -46,11 +48,10 @@ export default function TicketSalesWebsite() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [user, setUser] = useState<{ name: string; email: string; avatar?: string } | null>(null)
-
-  // Substituir o estado isLoginOpen e processLogin por:
   const [isLoginOpen, setIsLoginOpen] = useState(false)
+
+  // Usar o NextAuth em vez do estado local
+  const { session, isAuthenticated, isLoading } = useSession()
 
   // Form para login
   const loginForm = useForm<LoginFormData>({
@@ -63,17 +64,21 @@ export default function TicketSalesWebsite() {
 
   const onLoginSubmit = async (data: LoginFormData) => {
     try {
-      console.log("Dados do login:", data)
-      // Simular login
-      setUser({
-        name: "João Silva",
+      const result = await signIn("credentials", {
         email: data.email,
-        avatar: "/placeholder.svg?height=32&width=32",
+        password: data.password,
+        redirect: false,
       })
-      setIsLoggedIn(true)
-      setIsLoginOpen(false)
+
+      if (result?.ok) {
+        setIsLoginOpen(false)
+        loginForm.reset()
+      } else {
+        alert("Credenciais inválidas. Verifique seu e-mail e senha.")
+      }
     } catch (error) {
       console.error("Erro no login:", error)
+      alert("Ocorreu um erro ao fazer login. Verifique suas credenciais e tente novamente.")
     }
   }
 
@@ -91,19 +96,30 @@ export default function TicketSalesWebsite() {
 
   const addToCart = (event: Event, quantity = 1) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === event.id)
+      const existingItem = prevCart.find((item) => item.eventId === event.id)
       if (existingItem) {
-        return prevCart.map((item) => (item.id === event.id ? { ...item, quantity: item.quantity + quantity } : item))
+        return prevCart.map((item) => (item.eventId === event.id ? { ...item, quantity: item.quantity + quantity } : item))
       }
-      return [...prevCart, { ...event, quantity }]
+      return [...prevCart, {
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventTime: event.time,
+        sectorId: 'default',
+        sectorName: 'Geral',
+        ticketTypeId: 'default',
+        ticketTypeName: 'Inteira',
+        price: event.price,
+        quantity
+      }]
     })
   }
 
   const updateCartQuantity = (eventId: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart((prevCart) => prevCart.filter((item) => item.id !== eventId))
+      setCart((prevCart) => prevCart.filter((item) => item.eventId !== eventId))
     } else {
-      setCart((prevCart) => prevCart.map((item) => (item.id === eventId ? { ...item, quantity } : item)))
+      setCart((prevCart) => prevCart.map((item) => (item.eventId === eventId ? { ...item, quantity } : item)))
     }
   }
 
@@ -132,9 +148,8 @@ export default function TicketSalesWebsite() {
     setIsLoginOpen(true)
   }
 
-  const handleLogout = () => {
-    setUser(null)
-    setIsLoggedIn(false)
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/" })
   }
 
   return (
@@ -182,11 +197,11 @@ export default function TicketSalesWebsite() {
                   </DialogHeader>
                   <div className="space-y-4 max-h-96 overflow-y-auto">
                     {cart.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={item.eventId} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex-1">
-                          <h4 className="font-medium text-sm">{item.title}</h4>
+                          <h4 className="font-medium text-sm">{item.eventTitle}</h4>
                           <p className="text-xs text-muted-foreground">
-                            {formatDate(item.date)} - {item.time}
+                            {formatDate(item.eventDate)} - {item.eventTime}
                           </p>
                           <p className="text-sm font-semibold">R$ {item.price.toFixed(2)}</p>
                         </div>
@@ -194,7 +209,7 @@ export default function TicketSalesWebsite() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateCartQuantity(item.eventId, item.quantity - 1)}
                           >
                             <Minus className="w-3 h-3" />
                           </Button>
@@ -202,7 +217,7 @@ export default function TicketSalesWebsite() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateCartQuantity(item.eventId, item.quantity + 1)}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -233,7 +248,7 @@ export default function TicketSalesWebsite() {
                 </DialogContent>
               </Dialog>
 
-              {!isLoggedIn ? (
+              {!isAuthenticated ? (
                 <Button onClick={handleLogin} size="sm">
                   <LogIn className="w-4 h-4 mr-2" />
                   Entrar
@@ -243,9 +258,9 @@ export default function TicketSalesWebsite() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.avatar || "/placeholder.svg"} alt={user?.name || "Avatar"} />
+                        <AvatarImage src={session?.user?.image || "/placeholder.svg"} alt={session?.user?.name || "Avatar"} />
                         <AvatarFallback>
-                          {user?.name
+                          {session?.user?.name
                             ?.split(" ")
                             .map((n) => n[0])
                             .join("")
@@ -257,8 +272,8 @@ export default function TicketSalesWebsite() {
                   <DropdownMenuContent className="w-56" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                        <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{session?.user?.email}</p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -599,9 +614,9 @@ export default function TicketSalesWebsite() {
             <div className="space-y-2">
               <h4 className="font-medium">Resumo do Pedido</h4>
               {cart.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
+                <div key={item.eventId} className="flex justify-between text-sm">
                   <span>
-                    {item.title} x{item.quantity}
+                    {item.eventTitle} x{item.quantity}
                   </span>
                   <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
