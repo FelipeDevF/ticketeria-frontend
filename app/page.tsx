@@ -41,6 +41,7 @@ import { loginSchema, type LoginFormData } from "@/lib/validations"
 import { events } from "@/lib/events" // Importar eventos do arquivo centralizado
 import type { Event, CartItem } from "@/lib/types" // Importar tipos
 import { useSession } from "@/modules/auth"
+import Header from "@/components/Header"
 
 export default function TicketSalesWebsite() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -154,156 +155,19 @@ export default function TicketSalesWebsite() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-primary">TicketHub</h1>
-            </div>
-            <nav className="hidden md:flex items-center space-x-6">
-              <a href="#eventos" className="text-muted-foreground hover:text-primary">
-                Eventos
-              </a>
-              <a href="#categorias" className="text-muted-foreground hover:text-primary">
-                Categorias
-              </a>
-              <a href="#sobre" className="text-muted-foreground hover:text-primary">
-                Sobre
-              </a>
-              <a href="#contato" className="text-muted-foreground hover:text-primary">
-                Contato
-              </a>
-            </nav>
-            <div className="flex items-center gap-3">
-              <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="relative bg-transparent">
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Carrinho
-                    {getTotalItems() > 0 && (
-                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                        {getTotalItems()}
-                      </Badge>
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Carrinho de Compras</DialogTitle>
-                    <DialogDescription>
-                      {cart.length === 0 ? "Seu carrinho está vazio" : `${getTotalItems()} item(s) no carrinho`}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {cart.map((item) => (
-                      <div key={item.eventId} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm">{item.eventTitle}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(item.eventDate)} - {item.eventTime}
-                          </p>
-                          <p className="text-sm font-semibold">R$ {item.price.toFixed(2)}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateCartQuantity(item.eventId, item.quantity - 1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateCartQuantity(item.eventId, item.quantity + 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {cart.length > 0 && (
-                    <>
-                      <Separator />
-                      <div className="flex justify-between items-center font-semibold">
-                        <span>Total:</span>
-                        <span>R$ {getTotalPrice().toFixed(2)}</span>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          onClick={() => {
-                            setIsCartOpen(false)
-                            setIsCheckoutOpen(true)
-                          }}
-                          className="w-full"
-                        >
-                          Finalizar Compra
-                        </Button>
-                      </DialogFooter>
-                    </>
-                  )}
-                </DialogContent>
-              </Dialog>
-
-              {!isAuthenticated ? (
-                <Button onClick={handleLogin} size="sm">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Entrar
-                </Button>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={session?.user?.image || "/placeholder.svg"} alt={session?.user?.name || "Avatar"} />
-                        <AvatarFallback>
-                          {session?.user?.name
-                            ?.split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{session?.user?.email}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <UserCircle className="mr-2 h-4 w-4" />
-                      <span>Perfil</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/meus-pedidos">
-                        <ShoppingBag className="mr-2 h-4 w-4" />
-                        <span>Meus Pedidos</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Configurações</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sair</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <Header
+        cartItemsCount={getTotalItems()}
+        cartItems={cart}
+        onCartClick={() => setIsCartOpen(true)}
+        onCartQuantityChange={(item, newQuantity) => updateCartQuantity(item.eventId, newQuantity)}
+        onCartCheckout={() => {
+          setIsCartOpen(false)
+          setIsCheckoutOpen(true)
+        }}
+        getTotalPrice={getTotalPrice}
+        formatDate={formatDate}
+        onLoginClick={() => setIsLoginOpen(true)}
+      />
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary to-primary/80 text-white py-20">
         <div className="container mx-auto px-4 text-center">

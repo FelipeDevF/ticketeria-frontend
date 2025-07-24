@@ -23,17 +23,22 @@ export default function PaymentPage() {
 
   useEffect(() => {
     const storedPurchase = localStorage.getItem("currentPurchase")
+    const storedCart = localStorage.getItem("userCart")
     if (storedPurchase) {
-      const purchaseDetails: PurchaseDetails = JSON.parse(storedPurchase)
-      const foundEvent = events.find((e) => e.id === purchaseDetails.eventId)
-      if (foundEvent) {
-        setEvent(foundEvent)
-        setSelectedTicketQuantities(purchaseDetails.sectorQuantities) // Usar a nova estrutura
-      } else {
-        router.push("/") // Redirecionar se o evento não for encontrado
+      try {
+        const purchaseDetails: PurchaseDetails = JSON.parse(storedPurchase)
+        const foundEvent = events.find((e) => e.id === purchaseDetails.eventId)
+        if (foundEvent) {
+          setEvent(foundEvent)
+          setSelectedTicketQuantities(purchaseDetails.sectorQuantities)
+        } else {
+          router.push("/")
+        }
+      } catch (error) {
+        router.push("/")
       }
     } else {
-      router.push("/") // Redirecionar se não houver dados de compra
+      router.push("/")
     }
     setLoading(false)
   }, [router])

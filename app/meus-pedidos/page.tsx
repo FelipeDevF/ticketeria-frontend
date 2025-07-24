@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { events } from "@/lib/events" // Importar eventos
 import type { OrderDetails } from "@/lib/types" // Importar tipos
+import Header from "@/components/Header"
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<OrderDetails[]>([])
@@ -56,21 +57,16 @@ export default function MyOrdersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="flex items-center gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Voltar
-              </Button>
-              <h1 className="text-2xl font-bold text-primary">Meus Pedidos</h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <Header
+        title="Meus Pedidos"
+        showNav={false}
+        childrenRight={
+          <Button variant="ghost" size="sm" onClick={() => router.push("/")} className="flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+        }
+      />
       {/* Orders List */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">

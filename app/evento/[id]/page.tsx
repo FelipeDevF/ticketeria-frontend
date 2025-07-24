@@ -2,28 +2,20 @@
 
 import { DialogFooter } from "@/components/ui/dialog"
 
-import { useState, useEffect } from "react" // Importar useEffect
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
 import {
   ArrowLeft,
   Calendar,
   MapPin,
   Users,
   Star,
-  ShoppingCart,
   Plus,
   Minus,
-  LogIn,
-  LogOut,
-  Settings,
-  UserCircle,
-  ShoppingBag,
   Clock,
   Phone,
 } from "lucide-react"
 import Image from "next/image"
-import { YouTubeEmbed } from "@next/third-parties/google"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,15 +24,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
@@ -50,15 +33,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { loginSchema, type LoginFormData } from "@/lib/validations"
 import { events } from "@/lib/events"
 import type { CartItem, PurchaseDetails } from "@/lib/types"
+import Header from "@/components/Header"
+import { useCart } from "@/components/CartContext"
 
 export default function EventDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const eventId = params.id as string
 
-  const [cart, setCart] = useState<CartItem[]>([])
+  const { cart, updateQuantity } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
-  const [selectedTicketQuantities, setSelectedTicketQuantities] = useState<Record<string, Record<string, number>>>({})
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState<{ name: string; email: string; avatar?: string } | null>(null)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
@@ -73,32 +57,6 @@ export default function EventDetailsPage() {
 
   const event = events.find((e) => e.id === eventId)
 
-  // Efeito para carregar o carrinho e as quantidades selecionadas do localStorage ao montar
-  useEffect(() => {
-    const storedCartString = localStorage.getItem("userCart")
-    if (storedCartString) {
-      const storedCart: CartItem[] = JSON.parse(storedCartString)
-      setCart(storedCart)
-
-      // Reconstruir selectedTicketQuantities para o evento atual a partir do carrinho carregado
-      const initialSelectedQuantities: Record<string, Record<string, number>> = {}
-      storedCart.forEach((item) => {
-        if (item.eventId === eventId) {
-          if (!initialSelectedQuantities[item.sectorId]) {
-            initialSelectedQuantities[item.sectorId] = {}
-          }
-          initialSelectedQuantities[item.sectorId][item.ticketTypeId] = item.quantity
-        }
-      })
-      setSelectedTicketQuantities(initialSelectedQuantities)
-    }
-  }, [eventId]) // Depende de eventId para recarregar se o evento mudar
-
-  // Efeito para salvar o carrinho no localStorage sempre que ele mudar
-  useEffect(() => {
-    localStorage.setItem("userCart", JSON.stringify(cart))
-  }, [cart])
-
   if (!event) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -110,156 +68,56 @@ export default function EventDetailsPage() {
     )
   }
 
-  // Função para adicionar/atualizar item no carrinho
-  const updateCartItem = (
-    eventId: string,
-    eventTitle: string,
-    eventDate: string,
-    eventTime: string,
-    sectorId: string,
-    sectorName: string,
-    ticketTypeId: string,
-    ticketTypeName: string,
-    price: number,
-    quantity: number,
-  ) => {
-    setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex(
-        (item) => item.eventId === eventId && item.sectorId === sectorId && item.ticketTypeId === ticketTypeId,
-      )
-
-      if (quantity <= 0) {
-        if (existingItemIndex >= 0) {
-          const newCart = [...prevCart]
-          newCart.splice(existingItemIndex, 1)
-          return newCart
-        }
-        return prevCart
-      } else {
-        if (existingItemIndex >= 0) {
-          const newCart = [...prevCart]
-          newCart[existingItemIndex] = {
-            ...newCart[existingItemIndex],
-            quantity,
+  // Efeito para carregar o carrinho e as quantidades selecionadas do localStorage ao montar
+  useEffect(() => {
+    let alreadyLoaded = false;
+    if (!alreadyLoaded) {
+      const storedCartString = localStorage.getItem("userCart")
+      if (storedCartString) {
+        const storedCart: CartItem[] = JSON.parse(storedCartString)
+        storedCart.forEach((item) => {
+          if (item.eventId === eventId) {
+            updateQuantity(eventId, item.ticketTypeId, item.quantity)
           }
-          return newCart
-        } else {
-          return [
-            ...prevCart,
-            {
-              eventId,
-              eventTitle,
-              eventDate,
-              eventTime,
-              sectorId,
-              sectorName,
-              ticketTypeId,
-              ticketTypeName,
-              price,
-              quantity,
-            },
-          ]
-        }
+        })
       }
-    })
+      alreadyLoaded = true;
+    }
+  }, []) // Array de dependências vazio para rodar só uma vez
+
+  // Remover o estado local de selectedTicketQuantities
+  // updateTicketTypeQuantity agora só chama updateQuantity do contexto global
+  const updateTicketTypeQuantity = (
+    sectorId: string,
+    ticketTypeId: string,
+    newQuantity: number,
+    itemData?: Partial<CartItem>
+  ) => {
+    updateQuantity(event.id, ticketTypeId, Math.max(0, Math.min(10, newQuantity)), itemData)
   }
 
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
-
-  const getTotalItems = () => {
-    return cart.reduce((total, item) => total + item.quantity, 0)
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    })
-  }
-
-  const getAvailabilityPercentage = (sold: number, capacity: number) => {
-    return ((capacity - sold) / capacity) * 100
-  }
-
-  const updateTicketTypeQuantity = (sectorId: string, ticketTypeId: string, newQuantity: number) => {
-    setSelectedTicketQuantities((prev) => {
-      const newQuantities = { ...prev }
-      if (!newQuantities[sectorId]) {
-        newQuantities[sectorId] = {}
-      }
-
-      const currentSector = event.sectors.find((s) => s.id === sectorId)
-      const currentTicketType = currentSector?.ticketTypes.find((tt) => tt.id === ticketTypeId)
-
-      if (!currentSector || !currentTicketType) {
-        return prev
-      }
-
-      const quantityToSet = Math.max(0, Math.min(10, newQuantity))
-
-      const currentTotalSelectedInSector = Object.entries(newQuantities[sectorId]).reduce((sum, [id, qty]) => {
-        if (id === ticketTypeId) return sum + quantityToSet
-        return sum + qty
-      }, 0)
-
-      if (currentTotalSelectedInSector > currentSector.available) {
-        newQuantities[sectorId][ticketTypeId] = Math.max(
-          0,
-          quantityToSet - (currentTotalSelectedInSector - currentSector.available),
-        )
-      } else {
-        newQuantities[sectorId][ticketTypeId] = quantityToSet
-      }
-
-      updateCartItem(
-        event.id,
-        event.title,
-        event.date,
-        event.time,
-        sectorId,
-        currentSector.name,
-        ticketTypeId,
-        currentTicketType.name,
-        currentTicketType.price,
-        newQuantities[sectorId][ticketTypeId],
-      )
-
-      return newQuantities
-    })
-  }
-
-  const getTicketTypeQuantity = (sectorId: string, ticketTypeId: string) => {
-    return selectedTicketQuantities[sectorId]?.[ticketTypeId] || 0
+  // Função para obter a quantidade do carrinho global
+  const getCartQuantity = (sectorId: string, ticketTypeId: string) => {
+    const item = cart.find(
+      (i) => i.eventId === event.id && i.sectorId === sectorId && i.ticketTypeId === ticketTypeId
+    )
+    return item ? item.quantity : 0
   }
 
   const getTotalSelectedQuantity = () => {
-    let total = 0
-    for (const sectorId in selectedTicketQuantities) {
-      for (const ticketTypeId in selectedTicketQuantities[sectorId]) {
-        total += selectedTicketQuantities[sectorId][ticketTypeId]
-      }
-    }
-    return total
+    return cart
+      .filter((item) => item.eventId === event.id)
+      .reduce((total, item) => total + item.quantity, 0)
   }
 
   const getTotalSelectedPrice = () => {
-    let total = 0
-    for (const sectorId in selectedTicketQuantities) {
-      const sector = event.sectors.find((s) => s.id === sectorId)
-      if (sector && sector.ticketTypes) {
-        for (const ticketTypeId in selectedTicketQuantities[sectorId]) {
-          const ticketType = sector.ticketTypes.find((tt) => tt.id === ticketTypeId)
-          if (ticketType) {
-            total += ticketType.price * selectedTicketQuantities[sectorId][ticketTypeId]
-          }
-        }
-      }
-    }
-    return total
+    return cart
+      .filter((item) => item.eventId === event.id)
+      .reduce((total, item) => {
+        const sector = event.sectors.find((s) => s.id === item.sectorId)
+        const ticketType = sector?.ticketTypes.find((tt) => tt.id === item.ticketTypeId)
+        return ticketType ? total + ticketType.price * item.quantity : total
+      }, 0)
   }
 
   const handleLogin = () => {
@@ -286,12 +144,8 @@ export default function EventDetailsPage() {
     }
   }
 
+  // O botão Comprar Agora só redireciona para pagamento
   const handleBuyNow = () => {
-    const purchaseDetails: PurchaseDetails = {
-      eventId: event.id,
-      sectorQuantities: selectedTicketQuantities,
-    }
-    localStorage.setItem("currentPurchase", JSON.stringify(purchaseDetails))
     router.push("/pagamento")
   }
 
@@ -300,181 +154,48 @@ export default function EventDetailsPage() {
       eventId: event.id,
       sectorQuantities: {},
     }
-
     cart.forEach((item) => {
       if (!purchaseDetails.sectorQuantities[item.sectorId]) {
         purchaseDetails.sectorQuantities[item.sectorId] = {}
       }
       purchaseDetails.sectorQuantities[item.sectorId][item.ticketTypeId] = item.quantity
     })
-
     localStorage.setItem("currentPurchase", JSON.stringify(purchaseDetails))
     setIsCartOpen(false)
     router.push("/pagamento")
   }
 
+  // Certifique-se de que as funções utilitárias estão presentes
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    })
+  }
+
+  const getAvailabilityPercentage = (sold: number, capacity: number) => {
+    return ((capacity - sold) / capacity) * 100
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => (window.location.href = "/")}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Voltar
-              </Button>
-              <h1 className="text-2xl font-bold text-primary">TicketHub</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="relative bg-transparent"
-                  onClick={() => setIsCartOpen(true)}
-                >
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Carrinho
-                  {getTotalItems() > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                      {getTotalItems()}
-                    </Badge>
-                  )}
-                </Button>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Carrinho de Compras</DialogTitle>
-                    <DialogDescription>
-                      {cart.length === 0 ? "Seu carrinho está vazio" : `${getTotalItems()} item(s) no carrinho`}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {cart.map((item, index) => (
-                      <div
-                        key={`${item.eventId}-${item.sectorId}-${item.ticketTypeId}-${index}`}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm">{item.eventTitle}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {item.sectorName} - {item.ticketTypeName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(item.eventDate)} - {item.eventTime}
-                          </p>
-                          <p className="text-sm font-semibold">R$ {item.price.toFixed(2)}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              updateTicketTypeQuantity(
-                                item.sectorId,
-                                item.ticketTypeId,
-                                getTicketTypeQuantity(item.sectorId, item.ticketTypeId) - 1,
-                              )
-                            }
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              updateTicketTypeQuantity(
-                                item.sectorId,
-                                item.ticketTypeId,
-                                getTicketTypeQuantity(item.sectorId, item.ticketTypeId) + 1,
-                              )
-                            }
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {cart.length > 0 && (
-                    <>
-                      <Separator />
-                      <div className="flex justify-between items-center font-semibold">
-                        <span>Total:</span>
-                        <span>R$ {getTotalPrice().toFixed(2)}</span>
-                      </div>
-                      <DialogFooter>
-                        <Button onClick={handleCartCheckout} className="w-full">
-                          Finalizar Compra
-                        </Button>
-                      </DialogFooter>
-                    </>
-                  )}
-                </DialogContent>
-              </Dialog>
-
-              {!isLoggedIn ? (
-                <Button onClick={handleLogin} size="sm">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Entrar
-                </Button>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.avatar || "/placeholder.svg"} alt={user?.name || "Avatar"} />
-                        <AvatarFallback>
-                          {user?.name
-                            ?.split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <UserCircle className="mr-2 h-4 w-4" />
-                      <span>Perfil</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/meus-pedidos">
-                        <ShoppingBag className="mr-2 h-4 w-4" />
-                        <span>Meus Pedidos</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Configurações</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sair</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <Header
+        showNav={false}
+        onLoginClick={() => setIsLoginOpen(true)}
+        childrenRight={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+        }
+      />
       {/* Event Details */}
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
@@ -743,14 +464,14 @@ export default function EventDetailsPage() {
                   {event.videos.map((video) => (
                     <Card key={video.id} className="overflow-hidden">
                       <CardContent className="p-0">
-                        <YouTubeEmbed videoid={video.videoId} height={200} params="controls=1&modestbranding=1&rel=0" />
+                        <iframe
+                          width="100%"
+                          height="200"
+                          src={`https://www.youtube.com/embed/${video.videoId}?si=ku_xZNOCxvoIrMs1&amp;controls=0`} 
+                          title={video.title} 
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen></iframe>
                       </CardContent>
-                      <CardHeader className="pt-4">
-                        <CardTitle className="text-lg">{video.title}</CardTitle>
-                        <CardDescription className="flex items-center gap-2">
-                          <span>{video.artist}</span>
-                        </CardDescription>
-                      </CardHeader>
                     </Card>
                   ))}
                 </div>
@@ -826,32 +547,38 @@ export default function EventDetailsPage() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        updateTicketTypeQuantity(
-                                          sector.id,
-                                          ticketType.id,
-                                          getTicketTypeQuantity(sector.id, ticketType.id) - 1,
-                                        )
-                                      }
-                                      disabled={getTicketTypeQuantity(sector.id, ticketType.id) <= 0}
+                                      onClick={() => updateTicketTypeQuantity(sector.id, ticketType.id, getCartQuantity(sector.id, ticketType.id) - 1)}
+                                      disabled={getCartQuantity(sector.id, ticketType.id) <= 0}
                                     >
                                       <Minus className="w-3 h-3" />
                                     </Button>
                                     <span className="w-8 text-center text-sm">
-                                      {getTicketTypeQuantity(sector.id, ticketType.id)}
+                                      {getCartQuantity(sector.id, ticketType.id)}
                                     </span>
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        updateTicketTypeQuantity(
-                                          sector.id,
-                                          ticketType.id,
-                                          getTicketTypeQuantity(sector.id, ticketType.id) + 1,
-                                        )
-                                      }
+                                      onClick={() => {
+                                        const exists = !!cart.find(
+                                          (i) => i.eventId === event.id && i.sectorId === sector.id && i.ticketTypeId === ticketType.id
+                                        );
+
+                                        if (exists) {
+                                          updateTicketTypeQuantity(sector.id, ticketType.id, getCartQuantity(sector.id, ticketType.id) + 1)
+                                        } else {
+                                          updateTicketTypeQuantity(sector.id, ticketType.id, 1, {
+                                            eventTitle: event.title,
+                                            eventDate: event.date,
+                                            eventTime: event.time,
+                                            sectorId: sector.id,
+                                            sectorName: sector.name,
+                                            ticketTypeName: ticketType.name,
+                                            price: ticketType.price,
+                                          })
+                                        }
+                                      }}
                                       disabled={
-                                        getTicketTypeQuantity(sector.id, ticketType.id) >= 10 || // Limite por tipo
+                                        getCartQuantity(sector.id, ticketType.id) >= 10 || // Limite por tipo
                                         getTotalSelectedQuantity() >= sector.available // Limite total do setor
                                       }
                                     >

@@ -27,6 +27,7 @@ import { cadastroSchema, type CadastroFormData, useRegisterWithAutoLogin, Regist
 import { loginSchema, type LoginFormData } from '@/lib/validations'
 import { formatCPF, formatPhone, formatCEP } from '@/lib/format'
 import { signIn } from "next-auth/react"
+import Header from "@/components/Header"
 
 export default function CadastroPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -140,24 +141,20 @@ export default function CadastroPage() {
 
   return (
     <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-white">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="sm" asChild className="flex items-center gap-2">
-                  <Link href="/">
-                    <ArrowLeft className="w-4 h-4" />
-                    Voltar
-                  </Link>
-                </Button>
-                <h1 className="text-2xl font-bold text-primary">TicketHub</h1>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Cadastro Form */}
+      <Header
+        title="TicketHub"
+        showNav={false}
+        childrenRight={
+          <Button variant="ghost" size="sm" asChild className="flex items-center gap-2">
+            <Link href="/">
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
+            </Link>
+          </Button>
+        }        
+        onLoginClick={() => setIsLoginOpen(true)}
+      />
+      {/* Cadastro Form */}
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
