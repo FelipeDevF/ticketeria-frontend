@@ -8,11 +8,14 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { OrderDetails } from "@/lib/types"
+import { useAuth } from "@/hooks/useAuth"
+import { AuthLoading } from "@/components/auth"
 
 export default function OrderConfirmationPage() {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
 
   useEffect(() => {
     const storedOrdersString = localStorage.getItem("userOrders")
@@ -31,6 +34,15 @@ export default function OrderConfirmationPage() {
     }
     setLoading(false)
   }, [router])
+
+  // Verifica autenticação
+  if (isLoading) {
+    return <AuthLoading message="Verificando autenticação..." />
+  }
+
+  if (!isAuthenticated) {
+    return null // Será redirecionado pelo hook
+  }
 
   if (loading) {
     return (

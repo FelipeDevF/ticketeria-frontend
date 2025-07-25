@@ -110,7 +110,8 @@ const handler = NextAuth({
     }
   },
   pages: {
-    signIn: "/cadastro",
+    signIn: "/acesso-negado",
+    error: "/acesso-negado",
   },
   session: {
     strategy: "jwt",

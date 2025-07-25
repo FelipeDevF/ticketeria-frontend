@@ -10,11 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { events } from "@/lib/events" // Importar eventos
 import type { OrderDetails } from "@/lib/types" // Importar tipos
 import Header from "@/components/Header"
+import { useAuth } from "@/hooks/useAuth"
+import { AuthLoading } from "@/components/auth"
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<OrderDetails[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
 
   useEffect(() => {
     const storedOrdersString = localStorage.getItem("userOrders")
@@ -45,6 +48,15 @@ export default function MyOrdersPage() {
     // Month is 0-indexed in JavaScript Date object
     const eventDateTime = new Date(year, month - 1, day, hours, minutes)
     return eventDateTime < new Date()
+  }
+
+  // Verifica autenticação
+  if (isLoading) {
+    return <AuthLoading message="Verificando autenticação..." />
+  }
+
+  if (!isAuthenticated) {
+    return null // Será redirecionado pelo hook
   }
 
   if (loading) {

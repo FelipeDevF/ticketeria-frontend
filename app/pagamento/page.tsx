@@ -11,9 +11,12 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { events } from "@/lib/events" // Importar eventos do arquivo centralizado
 import type { Event, PurchaseDetails, OrderDetails } from "@/lib/types" // Importar tipos
+import { useAuth } from "@/hooks/useAuth"
+import { AuthLoading } from "@/components/auth"
 
 export default function PaymentPage() {
   const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
   const [event, setEvent] = useState<Event | null>(null)
   // Atualizar o estado para a nova estrutura de quantidades
   const [selectedTicketQuantities, setSelectedTicketQuantities] = useState<Record<string, Record<string, number>>>({})
@@ -42,6 +45,15 @@ export default function PaymentPage() {
     }
     setLoading(false)
   }, [router])
+
+  // Verifica autenticação
+  if (isLoading) {
+    return <AuthLoading message="Verificando autenticação..." />
+  }
+
+  if (!isAuthenticated) {
+    return null // Será redirecionado pelo hook
+  }
 
   if (loading) {
     return (
